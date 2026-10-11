@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Rubik's Cube Solver & Tutorial</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f6f5f2;--fg:#1c1c1c;--card:#fff;--line:#d8d6d0;--acc:#2f6fed}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#181818;--fg:#eee;--card:#242424;--line:#3a3a3a;--acc:#6b9bff}}
+:root[data-theme="dark"]{--bg:#181818;--fg:#eee;--card:#242424;--line:#3a3a3a;--acc:#6b9bff}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,sans-serif;padding:14px;display:flex;flex-direction:column;align-items:center}
+main{width:100%;max-width:520px}
+h1{font-size:1.25rem;margin:2px 0 8px;text-align:center}
+.tabs{display:flex;gap:6px;justify-content:center;margin-bottom:8px}
+button{font:inherit;padding:7px 11px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+button:hover{border-color:var(--acc)}button:disabled{opacity:.4;cursor:default}
+button.p,button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+#stage{height:300px;perspective:900px;touch-action:none;cursor:grab;display:flex;align-items:center;justify-content:center;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+#cube{position:relative;width:0;height:0;transform-style:preserve-3d}
+.st{position:absolute;left:0;top:0;transform-style:preserve-3d}
+.st::after{content:'';position:absolute;inset:-3px;background:#111;transform:translateZ(-1px);backface-visibility:hidden;border-radius:4px}
+.st{backface-visibility:hidden;border-radius:3px}
+.row{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin:9px 0}
+.sw{width:30px;height:30px;padding:0;border-radius:50%}.sw.sel{outline:3px solid var(--acc);outline-offset:2px}
+.mv button{min-width:40px;padding:6px 4px}
+#st{text-align:center;font-weight:600;min-height:1.4em}
+.blk{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:8px 0}
+.blk p{margin:3px 0 6px;font-size:.9rem;opacity:.85}
+.chip{display:inline-block;padding:1px 6px;margin:1px;border-radius:5px;border:1px solid var(--line);font-family:ui-monospace,monospace}
+.chip.now{background:var(--acc);color:#fff}.chip.done{opacity:.35}
+.hint{font-size:.85rem;opacity:.7;text-align:center}
+#net{display:grid;grid-template-columns:repeat(12,1fr);gap:2px;max-width:340px;margin:6px auto;background:var(--card);padding:8px;border-radius:10px;border:1px solid var(--line)}#net div{aspect-ratio:1;border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;font:800 9px system-ui;color:#111}#net .e{visibility:hidden}details summary{cursor:pointer;font-weight:600;text-align:center}
+#big{display:block;margin:6px auto;width:240px;max-width:100%;border:1px solid var(--line);border-radius:8px;background:#888}#ctl{display:flex;flex-direction:column;gap:2px;max-width:300px;margin:0 auto}#ctl label{display:flex;justify-content:space-between;gap:8px;font-size:.85rem}#ctl input{flex:1}.slot{position:relative;display:flex;flex-direction:column;align-items:center;width:31%;font-size:.7rem;text-align:center;cursor:pointer;gap:2px}.slot canvas{width:100%;aspect-ratio:1;border:1px solid var(--line);border-radius:6px;background:#888}
+#lst{position:sticky;top:0;z-index:5;background:var(--bg);padding-bottom:6px}#learn code{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:0 4px}.w{padding:3px 8px;margin:2px;font-size:.85rem}#learn{display:none}.cl{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font:800 18px/1 system-ui;pointer-events:none}.cl small{font:800 11px/1.2 system-ui}#learn li{margin:6px 0}
+</style></head><body><main>
+<h1>Rubik's Cube Solver &amp; Tutorial</h1>
+<div class="tabs"><button id="t1" class="on">Solver</button><button id="t2">Learn</button></div>
+<div id="solver">
+<div id="stage"><div id="cube"></div></div>
+<div class="row"><button id="m1" class="on">Beginner</button><button id="m2">CFOP</button></div>
+<div class="row"><button id="sc">Scramble</button><button id="rs">Reset</button><button id="sv" class="p">Solve</button></div>
+<div class="row"><button id="stp" disabled>Step ▶</button><button id="auto" disabled>Auto ▶▶</button></div>
+<div class="row"><label>Speed <input type="range" id="spd" min="0.5" max="5" step="0.5" value="1"> <b id="spv">1x</b></label><label>Camera <select id="cm" style="font:inherit;padding:5px;border-radius:8px"><option value="m">Follow each move</option><option value="s">Per stage</option><option value="o">Off</option></select></label></div>
+<div id="st"></div><div class="row"><button class="bk" style="display:none">Back to my cube</button></div>
+<div class="hint">Drag to rotate. Pick a color below, then tap stickers (3D or flat view) to paint your pattern. Centers are fixed.</div>
+<div class="row" id="pal"></div>
+<div class="row mv" id="mv"></div>
+<details open><summary>Arrange your own cube (flat view)</summary><div class="hint">1) Pick a color above. 2) Tap stickers to paint every face to match your cube. 3) Press Solve.</div><div id="net"></div></details>
+<details id="scd"><summary>Scan a scrambled cube from photos</summary><div class="hint">1) Tap each box to add one photo per face (orientation under each box). 2) Tap a loaded photo to select it, then use the sliders so the 9 green circles sit on the 9 stickers. 3) Press Detect colors, check the flat view, then Solve.</div><div class="row"><button id="cam">📷 Scan with camera</button></div><div id="camw" style="display:none;text-align:center"><div style="position:relative;width:min(100%,300px);aspect-ratio:1;margin:auto;overflow:hidden;border-radius:8px;background:#000"><video id="vid" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover"></video><div style="position:absolute;inset:12.5%;border:2px solid #0f0;background:linear-gradient(90deg,transparent 33%,#0f08 33%,#0f08 34%,transparent 34%,transparent 66%,#0f08 66%,#0f08 67%,transparent 67%),linear-gradient(transparent 33%,#0f08 33%,#0f08 34%,transparent 34%,transparent 66%,#0f08 66%,#0f08 67%,transparent 67%)"></div></div><div class="hint" id="camh"></div><div class="row"><button id="snap" class="p">Capture</button><button id="camx">Close camera</button></div></div>
+<div class="row"><label class="hint">Or choose all 6 photos at once (order: Up, Front, Right, Back, Left, Down): <input type="file" id="mf" accept="image/*" multiple></label></div><div id="scan" class="row"></div><canvas id="big" width="240" height="240"></canvas><div id="ctl"><label>Size <input id="sz" type="range" min="30" max="100" value="75"></label><label>Left/Right <input id="px" type="range" min="-30" max="30" value="0"></label><label>Up/Down <input id="py" type="range" min="-30" max="30" value="0"></label></div><div class="hint"><b>Photo picker not opening?</b> Send your 6 photos to Claude in the chat, and it will give you a code to paste here. You can also copy this cube's code.</div><div class="row"><input id="code" placeholder="54-letter cube code" style="flex:1;min-width:180px;padding:7px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg)"><button id="lc">Load code</button><button id="gc">Show code</button></div><div class="row"><button id="rep">Replace selected photo</button><button id="det" class="p">Detect colors</button></div></details>
+<div id="sol"></div>
+</div>
+<div id="learn"></div>
+</main>
+<script>
+//CORE
+const FA={U:[1,1],D:[1,-1],R:[0,1],L:[0,-1],F:[2,1],B:[2,-1]},FN=['U','D','R','L','F','B'];
+const rot=(v,ax,a)=>{const[x,y,z]=v;return ax==0?[x,-a*z,a*y]:ax==1?[a*z,y,-a*x]:[-a*y,a*x,z]};
+const G=[],idx={};
+for(let x=-1;x<2;x++)for(let y=-1;y<2;y++)for(let z=-1;z<2;z++){const p=[x,y,z];for(let a=0;a<3;a++)if(p[a]){const n=[0,0,0];n[a]=p[a];const e=[0,1,2].filter(k=>k!=a).map(k=>{const v=[0,0,0];v[k]=1;return v});idx[p+'|'+n]=G.length;G.push({p,n,e,c:FN.findIndex(f=>FA[f][0]==a&&FA[f][1]==p[a])})}}
+const T=Uint8Array.from(G.map(g=>g.c));
+const LAY={U:[1,[1],-1],D:[1,[-1],1],R:[0,[1],-1],L:[0,[-1],1],F:[2,[1],-1],B:[2,[-1],1],M:[0,[0],1],E:[1,[0],1],S:[2,[0],-1],r:[0,[1,0],-1],l:[0,[-1,0],1],u:[1,[1,0],-1],d:[1,[-1,0],1],f:[2,[1,0],-1],b:[2,[-1,0],1],x:[0,[-1,0,1],-1],y:[1,[-1,0,1],-1],z:[2,[-1,0,1],-1]};
+function mk(f,k){const[ax,vs,a]=LAY[f],P=[...Array(54).keys()];G.forEach((g,i)=>{if(!vs.includes(g.p[ax]))return;let p=g.p,n=g.n;for(let t=0;t<k;t++){p=rot(p,ax,a);n=rot(n,ax,a)}P[idx[p+'|'+n]]=i});return P}
+const MV={};Object.keys(LAY).forEach(f=>{MV[f]=mk(f,1);MV[f+"'"]=mk(f,3);MV[f+'2']=mk(f,2)});
+const ap=(c,P,o)=>{for(let j=0;j<54;j++)o[j]=c[P[j]]};
+function seqP(str){let s=[...Array(54).keys()];for(const m of str.split(' '))s=s.map((_,j)=>s[MV[m][j]]);return s}
+const inv=str=>str.split(' ').reverse().map(m=>m[1]=="'"?m[0]:m[1]=='2'?m:m+"'").join(' ');
+const CB={};G.forEach((g,i)=>(CB[g.p]??=[]).push(i));
+const nz=p=>p.filter(v=>v).length;
+const cbs=pred=>Object.keys(CB).map(k=>k.split(',').map(Number)).filter(pred).map(p=>CB[p]);
+const ok=ids=>s=>ids.every(i=>s[i]===T[i]);
+const st_=(pred)=>G.map((g,i)=>pred(g)?i:-1).filter(i=>i>=0);
+const UT=['U',"U'",'U2'].map(s=>({s,P:seqP(s),g:0}));
+const BASIC=FN.flatMap((f,fi)=>['',"'",'2'].map(x=>({s:f+x,P:MV[f+x],g:fi})));
+const RING=['R','B','L','F'];
+const rm=(str,k)=>str.split(' ').map(m=>{const i=RING.indexOf(m[0]);return i<0?m:RING[(i+k)%4]+m.slice(1)}).join(' ');
+const mac=(list)=>list.map((s,i)=>({s,P:seqP(s),g:100+4*i,rep:1}));
+const rots=b=>[0,1,2,3].map(k=>rm(b,k));
+const SUNE="R U R' U R U2 R'",UA="R U' R U R U R U' R' U' R2";
+const pairs=[];['R','L','F','B'].forEach(f=>{const[a,s]=FA[f];const ids=st_(g=>g.n[a]==s&&g.p[1]==1&&nz(g.p)==3);pairs.push(ids)});
+const STAGES=[
+{t:'1. Bottom cross',w:'Solve the four yellow edge pieces on the bottom so each also matches its side center color.',tok:BASIC,d:8,grp:cbs(p=>p[1]==-1&&nz(p)==2).map(ok)},
+{t:'2. Bottom corners',w:'Repeat the "sexy move" (R U R\' U\') to drop each yellow corner into its slot; turn U to line pieces up.',tok:[...UT,...mac(rots("R U R' U'"))],d:9,grp:cbs(p=>p[1]==-1&&nz(p)==3).map(ok)},
+{t:'3. Middle layer',w:'Slide each edge that has no white piece down into the middle layer, going right or left.',tok:[...UT,...mac([...rots("U R U' R' U' F' U F"),...rots("U' L' U L U F U' F'")])],d:5,grp:cbs(p=>p[1]==0&&nz(p)==2).map(ok)},
+{t:'4. Top cross',w:'Make a white cross on the top with F R U R\' U\' F\' (repeat until a plus shape appears).',tok:[...UT,...mac(["F R U R' U' F'"])],d:6,grp:[ok(st_(g=>g.n[1]==1&&g.p[1]==1&&nz(g.p)==2))]},
+{t:'5. Top face white',w:'Twist the top corners with Sune (R U R\' U R U2 R\') until the entire top is white.',tok:[...UT,...mac([SUNE,inv(SUNE)])],d:8,grp:[ok(st_(g=>g.n[1]==1))]},
+{t:'6. Place top corners',w:'Cycle the top corners into their correct spots (they may still be rotated as a group).',tok:[...UT,...mac(["U R U' L' U R' U' L","R U R' U' R' F R2 U' R' U' R U R' F'"])],d:7,grp:[s=>pairs.every(([a,b])=>s[a]===s[b])]},
+{t:'7. Place top edges',w:'Cycle the last three edges with the Ua-perm until the cube is solved.',tok:[...UT,...mac([UA,inv(UA)])],d:8,grp:[s=>s.every((v,i)=>v===T[i])]}];
+const vf=f=>{const v=[0,0,0];v[FA[f][0]]=FA[f][1];return v};
+const slotIds=k=>{const a=vf(RING[k]),b=vf(RING[(k+3)%4]),e=[a[0]+b[0],0,a[2]+b[2]];return[...CB[[e[0],-1,e[2]]],...CB[e]]};
+const F2M=["R U R'","R U' R'","R U2 R'","F' U F","F' U' F","F' U2 F","R U R' U'","R' F R F'","R U' R' U","F' U' F U","R U2 R' U' R U R'"];
+const CBL=Object.keys(CB).map(k=>({p:k.split(',').map(Number),ids:CB[k]}));
+const topY=(s,ids)=>{const k=ids.map(i=>T[i]).sort().join();return CBL.some(c=>c.ids.length==ids.length&&c.p[1]==1&&c.ids.map(i=>s[i]).sort().join()==k)};
+const freeT=[...UT,...mac([...rots("R U R' U'"),...rots("R U R'")])];
+const f2l=k=>[{tmp:1,g:s=>{const a=slotIds(k);return topY(s,a.slice(0,3))&&topY(s,a.slice(3))},tok:freeT},{g:ok(slotIds(k)),tok:[...UT,...['R',"R'",'F',"F'"].map(m=>{const x=rm(m,k);return{s:x,P:MV[x],g:FN.indexOf(x[0])}}),...mac(F2M.map(a=>rm(a,k)))]}];
+const AA="R' F R' B2 R F' R' B2 R2",TP="R U R' U' R' F R2 U' R' U' R U R' F'";
+const OLLS=["F R U R' U' F'","F U R U' R' F'",SUNE,inv(SUNE),"R U2 R2 U' R2 U' R2 U2 R","F R U R' U' R U R' U' R U R' U' F'","R2 D R' U2 R D' R' U2 R'","R U R' U' R' F R F'"];
+const PLLS=[UA,inv(UA),AA,inv(AA),TP,"R U R' F' R U R' U' R' F R2 U' R'","L' U' L F L' U' L U L F' L2 U L","F R U' R' U' R U R' F' R U R' U' R' F R F'"];
+const OLLF=["R U2 R2 F R F' U2 R' F R F'","F R U R' U' F' f R U R' U' f'","f R U R' U' f' U' F R U R' U' F'","f R U R' U' f' U F R U R' U' F'","r' U2 R U R' U r","r U2 R' U' R U' r'","r U R' U R U2 r'","r' U' R U' R' U2 r","R U R' U' R' F R2 U R' U' F'","R U R' U R' F R F' R U2 R'","r U R' U R' F R F' R U2 r'","F R U R' U' F' U F R U R' U' F'","F U R U2 R' U' R U R' F'","R' F R U R' F' R F U' F'","r' R' U' R U' R' U R U' r","r U r' R U R' U' r U' r'","R U R' U R' F R F' U2 R' F R F'","r U R' U R U2 r2 U' R U' R' U2 r","M U R U R' U' M' R' F R F'","r U R' U' M2 U R U' R' U' M'","R U2 R' U' R U R' U' R U' R'","R U2 R2 U' R2 U' R2 U2 R","R2 D R' U2 R D' R' U2 R'","r U R' U' r' F R F'","F' r U R' U' r' F R","R U2 R' U' R U' R'","R U R' U R U2 R'","r U R' U' r' R U R U' R'","R U R' U' R U' R' F' U' F R U R'","F R' F R2 U' R' U' R U R' F2","R' U' F U R U' R' F' R","R U B' U' R' U R B R'","R U R' U' R' F R F'","R U R2 U' R' F R U R U' F'","R U2 R2 F R F' R U2 R'","R' U' R U' R' U R U R B' R' B","F R' F' R U R U' R'","R U R' U R U' R' U' R' F R F'","R U R' F' U' F U R U2 R'","R' F R U R' U' F' U R","R U R' U R U2 R' F R U R' U' F'","R' U' R U' R' U2 R F R U R' U' F'","R' U' F' U F R","F U R U' R' F'","F R U R' U' F'","R' U' R' F R F' U R","R' U' R' F R F' R' F R F' U R","F R U R' U' R U R' U' F'","R B' R2 F R2 B R2 F' R","R' F R2 B' R2 F' R2 B R'","F U R U' R' U R U' R' F'","R U R' U R U' B U' B' R'","r' U' R U' R' U R U' R' U2 r","r U R' U R U' R' U R U2 r'","R U2 R2 U' R U' R' U2 F R F'","r U r' U R U' R' U R U' R' r U' r'","R U R' U' M' U R U' r'"];
+const PLLF=[UA,"R' F R' B2 R F' R' B2 R2","R' U' F' R U R' U' R' F R2 U' R' U' R U R' U R","R2 U R' U R' U' R U' R2 U' D R' U R D'","R' U' R U D' R2 U R' U R U' R U' R2 D","R2 U' R U' R U R' U R2 U D' R U' R' D","R U R' U' D R2 U' R U' R' U R' U R2 D'","M2 U M2 U2 M2 U M2","L' U' L F L' U' L U L F' L2 U L","R U R' F' R U R' U' R' F R2 U' R'","R U R' U R U R' F' R U R' U' R' F R2 U' R' U2 R U' R'","R' U R U' R' F' U' F R U R' F R' F' R U' R","R U' R' U' R U R D R' U' R D' R' U2 R'","R' U2 R U2 R' F R U R' U' R' F' R2",TP,"F R U' R' U' R U R' F' R U R' U' R' F R F'","M' U M2 U M2 U M' U2 M2","R' U R' d' R' F' R2 U' R' U R' F R F","R B' R' F R B R' F' R B R' F R B' R' F'"];
+const invl=a=>[...new Set([...a,...a.map(inv)])];
+const structOK=(q,pll)=>{try{const P=seqP(q);return G.every((g,i)=>{if(g.p[1]==1&&nz(g.p)>1)return !pll||g.n[1]!=1||G[P[i]].n[1]==1;return P[i]===i})}catch(e){return false}};
+const OLLOK=invl(OLLF).filter(q=>structOK(q,0)),PLLOK=invl(PLLF).filter(q=>structOK(q,1));
+const STAGES2=[
+{t:'1. Cross',w:'Solve the four bottom edges (pros plan this during inspection and need about 8 moves).',tok:BASIC,d:8,grp:cbs(p=>p[1]==-1&&nz(p)==2).map(ok)},
+{t:'2. F2L (first two layers)',w:'Pair each bottom corner with its middle-layer edge and insert both together, one slot at a time.',tok:[],d:6,grp:[0,1,2,3].flatMap(f2l)},
+{t:'3. OLL (orient last layer)',w:'Make the entire top face white using OLL algorithms.',tok:[...UT,...mac(OLLOK)],d:3,opt:1,fb:{tok:[...UT,...mac(OLLS)],d:5},grp:[ok(st_(g=>g.n[1]==1))]},
+{t:'4. PLL (permute last layer)',w:'Move the top pieces into their final places using PLL algorithms.',tok:[...UT,...mac(PLLOK)],d:3,opt:1,fb:{tok:[...UT,...mac(PLLS)],d:5},grp:[s=>s.every((v,i)=>v===T[i])]}];
+function ida(s0,toks,goal,maxD){const B=Array.from({length:maxD+2},()=>new Uint8Array(54)),path=[];let ans;
+ const dfs=(s,d,lim,lg)=>{if(goal(s)){ans=d;return 1}if(d==lim)return 0;
+  for(const X of toks){if(X.g===lg&&!X.rep)continue;if(X.g===(lg^1)&&X.g<lg)continue;
+   ap(s,X.P,B[d+1]);path[d]=X;if(dfs(B[d+1],d+1,lim,X.g))return 1}return 0};
+ for(let lim=0;lim<=maxD;lim++)if(dfs(s0,0,lim,-9))return path.slice(0,ans);return null}
+function best(s0,toks,goal,maxD){const B=Array.from({length:maxD+2},()=>new Uint8Array(54)),path=[];let bc=1e9,bp=null;
+ const dfs=(s,d,c,lg)=>{if(goal(s)){if(c<bc){bc=c;bp=path.slice(0,d)}return}if(d==maxD)return;
+  for(const X of toks){if(X.g===lg&&!X.rep)continue;if(X.g===(lg^1)&&X.g<lg)continue;const nc=c+(X.n??=X.s.split(' ').length);if(nc>=bc)continue;ap(s,X.P,B[d+1]);path[d]=X;dfs(B[d+1],d+1,nc,X.g)}};
+ dfs(s0,0,0,-9);return bp}
+function simp(ms){const o=[];for(const m of ms){const k=m[1]=="'"?3:m[1]=='2'?2:1,l=o[o.length-1];if(l&&l[0]==m[0]){const q=(l[1]+k)%4;o.pop();if(q)o.push([m[0],q])}else o.push([m[0],k])}return o.map(([f,k])=>f+(k==1?'':k==2?'2':"'"))}
+function solve(c0,STG=STAGES){const s=Uint8Array.from(c0),tmp=new Uint8Array(54),pres=[],res=[];
+ for(const S of STG){const mv=[];for(const g0 of S.grp){const g=g0.g||g0;pres.unshift(g);let r=(S.opt?best:ida)(s,g0.tok||S.tok,x=>pres.every(f=>f(x)),S.d);if(!r&&S.fb)r=ida(s,S.fb.tok,x=>pres.every(f=>f(x)),S.fb.d);if(!r)return null;if(g0.tmp)pres.shift();for(const X of r){ap(s,X.P,tmp);s.set(tmp);mv.push(...X.s.split(' '))}}res.push({S,moves:simp(mv)})}
+ return res}
+function valid(c){const key=ids=>ids.map(i=>c[i]).sort().join(),ref=Object.values(CB).filter(v=>v.length>1).map(v=>v.map(i=>T[i]).sort().join());
+ const cur=Object.values(CB).filter(v=>v.length>1).map(key);return cur.slice().sort().join('|')===ref.slice().sort().join('|')}
+//ENDCORE
+const COLS=['#f4f4f4','#f2d21b','#d8342c','#f08a1c','#2aa84a','#2f6fe0'],SZ=48;
+let focus=null,track=Uint8Array.from({length:54},(_,i)=>i),inLearn=false,meth=1,col=Uint8Array.from(T),busy=false,sel=-1,rx=-26,ry=-38,plan=null,q=[],qi=0;
+const cube=document.getElementById('cube'),els=G.map(()=>{const d=document.createElement('div');d.className='st';d.style.cssText=`width:${SZ-4}px;height:${SZ-4}px;margin:${-(SZ-4)/2}px 0 0 ${-(SZ-4)/2}px`;cube.appendChild(d);return d});
+const $=id=>document.getElementById(id),status=t=>$('st').textContent=t;
+const OFF={U:[0,3],L:[3,0],F:[3,3],R:[3,6],B:[3,9],D:[6,3]},RC=(f,[x,y,z])=>({U:[z+1,x+1],F:[1-y,x+1],R:[1-y,1-z],B:[1-y,1-x],L:[1-y,z+1],D:[1-z,x+1]})[f];
+const nc=[];for(let i=0;i<108;i++){const d=document.createElement('div');d.className='e';$('net').appendChild(d);nc.push(d)}
+const netEl=G.map((g,i)=>{const f=FN[g.c],[r,c]=RC(f,g.p),d=nc[(OFF[f][0]+r)*12+OFF[f][1]+c];d.className='';d.onclick=()=>paint(i);return d});
+function paint(i){if(busy)return;if(sel<0)return status('Pick a color first');if(nz(G[i].p)==1)return status('Centers are fixed');col[i]=sel;draw();clearPlan();status('Pattern edited — press Solve')}
+const SL=['U','F','R','B','L','D'],SH={U:'Up (white center): green side at the bottom of the photo',F:'Front (green center): white face toward the top',R:'Right (red center): white face toward the top',B:'Back (blue center): white face toward the top',L:'Left (orange center): white face toward the top',D:'Down (yellow center): green side at the top of the photo'};
+const imgs={},FC={};FN.forEach(f=>FC[f]=[[],[],[]]);G.forEach((g,i)=>{const f=FN[g.c],[r,c]=RC(f,g.p);FC[f][r][c]=i});
+const lab=(r,g,b)=>{const f=c=>{c/=255;return c>.04045?((c+.055)/1.055)**2.4:c/12.92},R=f(r),Gg=f(g),B=f(b),t=v=>v>.008856?Math.cbrt(v):7.787*v+16/116,x=(.4124*R+.3576*Gg+.1805*B)/.95047,y=.2126*R+.7152*Gg+.0722*B,z=(.0193*R+.1192*Gg+.9505*B)/1.08883;return[116*t(y)-16,500*(t(x)-t(y)),200*(t(y)-t(z))]};
+const P={},inps={};let act='U';SL.forEach(f=>P[f]={s:75,x:0,y:0});
+$('scan').innerHTML=SL.map(f=>`<label class="slot"><canvas id="cv${f}" width="96" height="96"></canvas><span id="sp${f}">${f}: ${SH[f]}</span><input type="file" accept="image/*" data-f="${f}" style="position:absolute;left:0;top:0;width:100%;height:96px;opacity:0;cursor:pointer"></label>`).join('');
+function render(f,c,W){const im=imgs[f],x=c.getContext('2d');x.fillStyle='#888';x.fillRect(0,0,W,W);if(!im)return null;const m=Math.min(im.width,im.height),q=P[f],s=q.s/100;x.drawImage(im,(im.width-m)/2,(im.height-m)/2,m,m,0,0,W,W);const out=[],pts=[];
+ for(let r=0;r<3;r++){out.push([]);for(let k=0;k<3;k++){const px=Math.round(W*(.5+q.x/100+(k-1)*s/3)),py=Math.round(W*(.5+q.y/100+(r-1)*s/3)),h=Math.max(2,Math.round(W/32)),d=x.getImageData(px-h,py-h,2*h+1,2*h+1).data,a=[0,0,0],n=d.length/4;for(let j=0;j<d.length;j+=4){a[0]+=d[j];a[1]+=d[j+1];a[2]+=d[j+2]}out[r].push(a.map(v=>v/n));pts.push([px,py,h])}}
+ x.strokeStyle='#0f0';x.lineWidth=2;pts.forEach(([a,b,h])=>{x.beginPath();x.arc(a,b,h+2,0,7);x.stroke()});return out}
+const samp=f=>render(f,$('cv'+f),96);
+function refresh(){SL.forEach(f=>{samp(f);$('cv'+f).style.outline=f==act?'3px solid var(--acc)':'';$('sp'+f).textContent=(imgs[f]?'✓ ':'')+f+': '+SH[f]});render(act,$('big'),240);const q=P[act];$('sz').value=q.s;$('px').value=q.x;$('py').value=q.y}
+document.querySelectorAll('#scan input').forEach(inp=>{inps[inp.dataset.f]=inp;
+ inp.onclick=e=>{act=inp.dataset.f;if(imgs[act]){e.preventDefault();refresh()}};
+ inp.onchange=()=>loadFile(inp.dataset.f,inp.files[0])});
+function loadFile(f,fl){if(!fl)return;const rd=new FileReader();rd.onerror=()=>status('Could not read that photo');rd.onload=()=>{const im=new Image();im.onerror=()=>status('This image format is not supported by your browser. Try a JPG or PNG.');im.onload=()=>{imgs[f]=im;act=f;refresh();status(`Photo added for ${f}`)};im.src=rd.result};rd.readAsDataURL(fl)}
+$('mf').onchange=e=>[...e.target.files].slice(0,6).forEach((fl,i)=>loadFile(SL[i],fl));
+const ORD=['U','R','F','D','L','B'],LET='WYROGB';
+$('gc').onclick=()=>{$('code').value=ORD.map(f=>FC[f].flat().map(i=>LET[col[i]]).join('')).join('')};
+$('lc').onclick=()=>{if(busy)return;const c=$('code').value.replace(/[^A-Za-z]/g,'').toUpperCase();if(c.length!=54||[...c].some(x=>!LET.includes(x)))return status('Code must be 54 letters from W Y R O G B');const n=new Uint8Array(54);ORD.forEach((f,j)=>FC[f].flat().forEach((i,k)=>n[i]=LET.indexOf(c[j*9+k])));if(ORD.some(f=>n[FC[f][1][1]]!==FN.indexOf(f)))return status('Center letters must be: U=W, R=R, F=G, D=Y, L=O, B=B');col=n;draw();clearPlan();status('Code loaded. Press Solve.')};
+let stream=null,ci=0;
+function camStop(){if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;$('camw').style.display='none'}
+function camHint(){$('camh').textContent=`Face ${ci+1}/6 — ${SL[ci]}: ${SH[SL[ci]]}. Fit the cube face inside the green square.`}
+$('cam').onclick=async()=>{if(busy)return;try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('not available');stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});$('vid').srcObject=stream;$('camw').style.display='block';ci=0;camHint();status('Camera on')}catch(e){status('The camera is blocked or unavailable in this viewer ('+(e.name||e.message)+'). Use "choose photos" instead, or send the 6 photos to Claude for a code.')}};
+$('snap').onclick=()=>{const v=$('vid');if(!v.videoWidth)return;const m=Math.min(v.videoWidth,v.videoHeight),c=document.createElement('canvas');c.width=c.height=m;c.getContext('2d').drawImage(v,(v.videoWidth-m)/2,(v.videoHeight-m)/2,m,m,0,0,m,m);const f=SL[ci],im=new Image();im.onload=()=>{imgs[f]=im;P[f]={s:75,x:0,y:0};act=f;refresh()};im.src=c.toDataURL('image/jpeg',.9);ci++;if(ci>=6){camStop();status('All 6 faces captured. Check the green circles on each photo, then press Detect colors.')}else camHint()};
+$('camx').onclick=camStop;
+$('rep').onclick=()=>{const i=inps[act];i.value='';delete imgs[act];i.click()};
+['sz','px','py'].forEach((id,j)=>$(id).oninput=()=>{const q=P[act];q[['s','x','y'][j]]=+$(id).value;refresh()});
+refresh();
+$('det').onclick=()=>{if(busy)return;const S={};for(const f of SL){S[f]=samp(f);if(!S[f])return status('Add a photo for every face ('+f+' is missing)')}
+ const ft=(r,g,b)=>{const m=Math.max(r,g,b,1);return[r/m,g/m,b/m]},ref=SL.map(f=>ft(...S[f][1][1])),pr=[],used=new Set(),cnt=[1,1,1,1,1,1];
+ SL.forEach(f=>col[FC[f][1][1]]=FN.indexOf(f));
+ for(const f of SL)for(let r=0;r<3;r++)for(let k=0;k<3;k++){if(r==1&&k==1)continue;const l=ft(...S[f][r][k]);ref.forEach((q,j)=>pr.push([(l[0]-q[0])**2+(l[1]-q[1])**2+(l[2]-q[2])**2,FC[f][r][k],FN.indexOf(SL[j])]))}
+ pr.sort((a,b)=>a[0]-b[0]);for(const[d,i,c]of pr){if(used.has(i)||cnt[c]>=9)continue;used.add(i);cnt[c]++;col[i]=c}
+ draw();clearPlan();status('Scanned. Check the flat view against your cube, fix any wrong sticker by painting, then press Solve.')};
+const CAM1=[38,38,-4,-48,-48,-48,-48],CAM2=[38,20,-48,-48];let curSi=-1;
+const CAMF={U:[-50,null],D:[50,null],F:[-18,-18],R:[-18,-72],B:[-18,162],L:[-18,72]};
+function camTo(x,y,ms=900){return new Promise(r=>{if(x==null)x=rx;if(y==null)y=ry;const dy=((y-ry+540)%360)-180;y=ry+dy;if(Math.abs(rx-x)<1&&Math.abs(dy)<1)return r();cube.style.transition=`transform ${ms}ms ease`;rx=x;ry=y;view();setTimeout(()=>{cube.style.transition='';r()},ms+30)})}
+function rt(v,ax,th){const c=Math.cos(th),s=Math.sin(th),[x,y,z]=v;return ax==0?[x,y*c-z*s,y*s+z*c]:ax==1?[x*c+z*s,y,-x*s+z*c]:[x*c-y*s,x*s+y*c,z]}
+function place(i,ax,th){const g=G[i];let p=g.p,n=g.n,u=g.u||g.e[0];if(ax>=0){p=rt(p,ax,th);n=rt(n,ax,th);u=rt(u,ax,th)}
+ const c=v=>[v[0],-v[1],v[2]],P=c(p),N=c(n),U=c(u),V=[N[1]*U[2]-N[2]*U[1],N[2]*U[0]-N[0]*U[2],N[0]*U[1]-N[1]*U[0]],t=P.map((a,k)=>(a+N[k]/2)*SZ);
+ els[i].style.transform=`matrix3d(${U},0,${V},0,${N},0,${t},1)`}
+function draw(){els.forEach((e,i)=>{e.style.background=netEl[i].style.background=COLS[col[i]];e.style.opacity=focus&&!focus.has(track[i])&&nz(G[i].p)>1?.22:1;place(i,-1,0)})}
+const view=()=>cube.style.transform=`rotateX(${rx}deg) rotateY(${ry}deg)`;
+function turn(m,ms=280){return new Promise(r=>{const[ax,vs,aa]=LAY[m[0]],q_=m[1]=="'"?-1:m[1]=='2'?2:1,ids=G.map((g,i)=>vs.includes(g.p[ax])?i:-1).filter(i=>i>=0),tot=aa*q_*Math.PI/2;let t0;
+ (function fr(t){t0??=t;const k=Math.min(1,(t-t0)/ms);ids.forEach(i=>place(i,ax,tot*k));if(k<1)requestAnimationFrame(fr);else{const o=new Uint8Array(54),t2=new Uint8Array(54);ap(col,MV[m],o);ap(track,MV[m],t2);col=o;track=t2;draw();r()}})(performance.now())})}
+const lock=b=>{busy=b;document.querySelectorAll('button').forEach(x=>x.disabled=b)};
+function clearPlan(){curSi=-1;plan=null;q=[];$('sol').innerHTML='';$('stp').disabled=$('auto').disabled=true}
+FN.forEach(f=>["","'","2"].forEach(x=>{const b=document.createElement('button');b.textContent=f+x;b.onclick=async()=>{if(busy)return;clearPlan();lock(true);await turn(f+x,280/+$('spd').value);lock(false);status('')};$('mv').appendChild(b)}));
+COLS.forEach((c,i)=>{const b=document.createElement('button');b.className='sw';b.style.background=c;b.onclick=()=>{sel=sel==i?-1:i;[...$('pal').children].forEach((x,j)=>x.classList.toggle('sel',j==sel))};$('pal').appendChild(b)});
+$('spd').oninput=()=>$('spv').textContent=$('spd').value+'x';
+$('rs').onclick=()=>{if(busy)return;clearPlan();col=Uint8Array.from(T);draw();status('')};
+$('sc').onclick=()=>{if(busy)return;clearPlan();let l='',o=new Uint8Array(54);for(let i=0;i<22;i++){let f;do f=FN[Math.random()*6|0];while(f==l);l=f;const m=f+['',"'",'2'][Math.random()*3|0];ap(col,MV[m],o);col=Uint8Array.from(o)}draw();status('Scrambled — press Solve')};
+$('sv').onclick=()=>{if(busy)return;clearPlan();
+ if(!valid(col))return status('Invalid pattern: every edge/corner must be a real piece combination (no duplicates).');
+ status('Solving…');setTimeout(()=>{const r=solve(col,meth==1?STAGES:STAGES2);
+  if(!r)return status('No solution: this pattern is impossible on a real cube (twisted corner, flipped edge, or swapped pair).');
+  plan=r;q=[];let h='';r.forEach((x,si)=>{h+=`<div class="blk"><b>${x.S.t}</b> <small>(${x.moves.length} moves)</small><p>${x.S.w}</p>`+(x.moves.length?x.moves.map((m,mi)=>{q.push([si,mi,m]);return`<span class="chip" id="c${si}_${mi}">${m}</span>`}).join(''):'<i>Already done ✓</i>')+'</div>'});
+  $('sol').innerHTML=h;qi=0;if($('cm').value=='s')camTo((meth==1?CAM1:CAM2)[r.findIndex(x=>x.moves.length)]);$('stp').disabled=$('auto').disabled=!q.length;status(q.length?`${meth==1?'Beginner':'CFOP'} solution: ${q.length} moves in total. Step through or press Auto.`:'Already solved!')},30)};
+async function step(){if(qi>=q.length)return false;const[si,mi,m]=q[qi];const sp=+$('spd').value,cm=$('cm').value;if(si!==curSi){curSi=si;status(plan[si].S.t);if(cm=='s')await camTo((meth==1?CAM1:CAM2)[si],null,700/sp)}let cp;if(cm=='m'){const t=CAMF[m[0].toUpperCase()];if(t)cp=camTo(t[0],t[1],380/sp)}const c=$('c'+si+'_'+mi);c.className='chip now';await Promise.all([turn(m,320/sp),cp]);c.className='chip done';qi++;return true}
+$('stp').onclick=async()=>{lock(true);await step();lock(false);if(qi>=q.length){$('stp').disabled=$('auto').disabled=true;status('Solved! 🎉')}};
+$('auto').onclick=async()=>{lock(true);while(await step());lock(false);$('stp').disabled=$('auto').disabled=true;status('Solved! 🎉')};
+let dn=null;const S_=$('stage');
+S_.onpointerdown=e=>{dn={x:e.clientX,y:e.clientY,m:0,t:e.target}};
+S_.onpointermove=e=>{if(!dn||inLearn)return;const dx=e.clientX-dn.x,dy=e.clientY-dn.y;if(Math.abs(dx)+Math.abs(dy)>4)dn.m=1;if(dn.m){ry+=dx*.5;rx-=dy*.5;dn.x=e.clientX;dn.y=e.clientY;view()}};
+S_.onpointerup=()=>{if(dn&&!dn.m&&!busy&&!inLearn){const i=els.indexOf(dn.t);if(i>=0)paint(i)}dn=null};
+const CN={U:'White',D:'Yellow',R:'Red',L:'Orange',F:'Green',B:'Blue'},FNM={U:'Top',F:'Front',R:'Right',B:'Back',L:'Left',D:'Bottom'},SWT=f=>`<span style="display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid #000;background:${COLS[FN.indexOf(f)]};vertical-align:middle"></span>`;
+const W=(q,l)=>`<button class="w" data-s="${q}">▶ ${l||'Watch'}</button>`;
+const FD=[['U','Top layer','Clockwise (looking down at the top): the front edge slides to your LEFT.','Hold the bottom two layers with your left hand and turn the top layer with your right fingers.'],
+['D','Bottom layer','Clockwise (looking up from below): the front edge slides to your RIGHT.','Hold the top with your left hand and pull the bottom layer to the right with your right fingers.'],
+['R','Right face','Clockwise (looking at the right face): its front edge goes UP.','Hold the left side with your left hand and push the right face upward with your right hand.'],
+['L','Left face','Clockwise (looking at the left face): its front edge goes DOWN.','Hold the right side and push the left face downward.'],
+['F','Front face','Clockwise like a steering wheel as you face it: the top edge goes RIGHT.','Pinch the front layer and rotate it toward your right.'],
+['B','Back face','Clockwise (looking at the back face): the top edge goes LEFT from your view.','Hold the front, reach behind and turn the back layer so its top moves to your left.']];
+const STEPS=[
+['Bottom cross','Goal: the 4 yellow edge pieces sit on the bottom and each side color matches its center.','Find a yellow edge on the top layer. Turn U until its side color is above the matching center, then turn that face twice (for example F2). If an edge is in the middle or flipped, turn its face to bring it to the top first. Repeat for all four.',['F2','Half turn of the front face']],
+['Bottom corners','Goal: the 4 bottom corners are solved, so the whole bottom layer is yellow with matching sides.','Put a yellow corner on the top layer right above its slot (front-right). Repeat the "sexy move" until the corner drops in with yellow facing down. It takes 1 to 5 repeats.',["R U R' U'","Sexy move (repeat)"]],
+['Middle layer','Goal: the four middle edges (the ones with no white sticker) are solved.','Find a top edge whose front color matches the front center. Turn U to line it up, then use the right or left algorithm to slide it into its slot.',["U R U' R' U' F' U F",'Move edge right'],["U' L' U L U F U' F'",'Move edge left']],
+['Top cross','Goal: a white plus sign on the top face.','Look at the top: dot, L-shape or line. Hold an L in the back-left or a line horizontal, do the algorithm, and repeat until you see the plus.',["F R U R' U' F'",'Make the cross']],
+['Top face white','Goal: the whole top face is white.','Hold the cube so a white-faced corner sits at the front-left of the top. Repeat Sune until all four top corners are white. With one white corner use Sune, with a different layout use Anti-Sune.',["R U R' U R U2 R'",'Sune'],["R U2 R' U' R U' R'",'Anti-Sune']],
+['Place top corners','Goal: the top corners are in the right places (they may still be turned as a group).','Turn U until two corners already match their neighbors. Hold them at the back and cycle the others. If none match, use the cycle once, then check again.',["U R U' L' U R' U' L",'Corner cycle'],["R U R' U' R' F R2 U' R' U' R U R' F'",'T-perm (swap)']],
+['Place top edges','Goal: the cube is solved.','Find the one correctly placed top edge, hold it at the back, and use Ua if the other three should rotate clockwise, otherwise Ub. Finish with a U turn if needed.',["R U' R U R U R U' R' U' R2",'Ua-perm'],["R2 U R U R' U' R' U' R' U R'",'Ub-perm']]];
+$('learn').innerHTML=`<div id="lst"><div id="cap" class="hint" style="min-height:2.6em;font-weight:600"></div></div>
+<div class="row"><label>Demo speed <input type="range" id="spd2" min="0.5" max="5" step="0.5" value="1"></label><button class="bk" style="display:none">Back to my cube</button></div>
+<div class="row"><button id="rnd">🎲 New random demo scramble</button><button id="mine">Use my cube as demo</button></div>
+<div class="hint">The camera is locked on the front (right and top sides visible). Every ▶ Watch button runs on a scrambled demo cube: <b>bright pieces are the focus</b>, everything else is dimmed. Your own cube is saved and can be restored.</div>
+<div class="blk"><b>1. Know your cube</b><p>The 6 center pieces never move: they define each face's color. 12 edges have two colors and 8 corners have three. Hold the cube with the white center on top and green toward you. Then red is on your right, orange on your left, blue at the back and yellow on the bottom.</p><p><b>Center color of each side:</b></p><div>${['U','F','R','B','L','D'].map(f=>`<span class="chip">${SWT(f)} ${FNM[f]} (${f}): ${CN[f]}</span>`).join(' ')}</div></div>
+<div class="blk"><b>2. How to perform every move</b><p>Each face has three moves: a letter (clockwise quarter turn), the letter with ' (counter-clockwise) and the letter with 2 (half turn). "Clockwise" always means as if you were looking straight at that face.</p>
+${FD.map(([f,n,d,t])=>`<div style="margin:8px 0;padding-top:6px;border-top:1px solid var(--line)"><b>${SWT(f)} ${f} — ${n}</b> <small>(center: ${CN[f]})</small><p><b>${f}</b>: ${d}<br><b>${f}'</b>: the opposite direction.<br><b>${f}2</b>: a half turn (same either way).<br><i>Grip:</i> ${t}</p>${W(f)} ${W(f+"'",f+"'")} ${W(f+'2',f+'2')}</div>`).join('')}
+<p>You never need to rotate the whole cube while following this method: just keep white up and green in front.</p></div>
+<div class="blk"><b>3. Reading an algorithm</b><p>An algorithm is a list of moves done left to right. Example: <code>R U R' U'</code> means turn R clockwise, then U clockwise, then R counter-clockwise, then U counter-clockwise. Watch it, then do it slowly yourself. Speed comes later.</p>${W("R U R' U'")} ${W("R U R' U' R U R' U' R U R' U' R U R' U' R U R' U' R U R' U'",'Repeat 6x (back to start)')}</div>
+<div class="blk"><b>4. The 7 steps in detail</b>${STEPS.map(([t,g,h,...al],i)=>`<div style="margin:8px 0;padding-top:6px;border-top:1px solid var(--line)"><b>Step ${i+1}: ${t}</b><p>${g}<br>${h}</p>${al.map(([q,l])=>`<code>${q}</code> ${W(q,l)}`).join('<br>')}<br><button class="w" data-k="${i}" style="background:var(--acc);color:#fff">▶ Watch this whole step on a scrambled cube</button></div>`).join('')}</div>
+<div class="blk"><b>5. Faster method (CFOP) extras</b><p>Pairing a corner with its edge, then inserting both, replaces steps 2 and 3. These algorithms are used in the CFOP mode.</p>${[["R' F R F'",'Sledgehammer'],["R U R' F' R U R' U' R' F R2 U' R'",'Jb-perm'],["R' F R' B2 R F' R' B2 R2",'A-perm'],["F R U' R' U' R U R' F' R U R' U' R' F R F'",'Y-perm'],["R2 D R' U2 R D' R' U2 R'",'OLL: headlights']].map(([q,l])=>`<code>${q}</code> ${W(q,l)}`).join('<br>')}</div>
+<div class="blk"><b>6. Tips and common mistakes</b><p>• Never move the center pieces: they are your reference.<br>• If you lose track, use the Solver tab: paint your cube's colors and press Solve.<br>• Learn each algorithm by feel, not by memorizing letters. Repeat it 5 times slowly.<br>• Always keep the same orientation (white up, green front) while doing an algorithm.<br>• A prime (') is the opposite direction, not a second turn.<br>• Practice: do R, U, R', U' and then the reverse U, R, U', R' to return to the start.</p></div>`;
+let demo=false,bak=null;const sleep=t=>new Promise(r=>setTimeout(r,t));
+const UC={U:[1,0,0],D:[1,0,0],F:[1,0,0],B:[-1,0,0],R:[0,0,-1],L:[0,0,1]};G.forEach(g=>{if(nz(g.p)==1)g.u=UC[FN[g.c]]});
+function setLabels(on){G.forEach((g,i)=>{if(nz(g.p)!=1)return;const f=FN[g.c];netEl[i].textContent=on?f:'';els[i].innerHTML=on?`<span class="cl" style="color:${'DUDUUU'[0]&&['U','D','L'].includes(f)?'#111':'#fff'}">${f}<small>${CN[f]}</small></span>`:''});draw()}
+const SCQ="R U2 F' D L2 B R' U F2 D' L U' B2 R F' D2 L' U R2 F",$c=t=>$('cap').textContent=t;
+let SC=(()=>{let c=Uint8Array.from(T),o=new Uint8Array(54);for(const m of SCQ.split(' ')){ap(c,MV[m],o);c=Uint8Array.from(o)}return c})();
+const FOC=[cbs(p=>p[1]==-1&&nz(p)==2),cbs(p=>p[1]==-1&&nz(p)==3),cbs(p=>p[1]==0&&nz(p)==2),cbs(p=>p[1]==1&&nz(p)==2),cbs(p=>p[1]==1&&nz(p)==3),cbs(p=>p[1]==1&&nz(p)==3),cbs(p=>p[1]==1&&nz(p)==2)];
+const CAPS=['the 4 bottom edges (yellow side)','the 4 bottom corners','the 4 middle-layer edges','the 4 top edges','the 4 top corners','the 4 top corners','the 4 top edges'];
+function pieceIds(st,lists){const o=new Set();lists.forEach(ids=>{const k=ids.map(i=>T[i]).sort().join(),c=CBL.find(c=>c.ids.length==ids.length&&c.ids.map(i=>st[i]).sort().join()==k);if(c)c.ids.forEach(i=>o.add(i))});return o}
+function begin(){if(!demo){bak=Uint8Array.from(col);demo=true;document.querySelectorAll('.bk').forEach(b=>b.style.display='')}clearPlan();track=Uint8Array.from({length:54},(_,i)=>i)}
+async function play(ms){const sp=+$('spd').value;for(const m of ms){await turn(m,450/sp);await sleep(160/sp)}}
+async function watch(q,cap){if(busy)return;begin();col=Uint8Array.from(SC);const P=seqP(q),mv=new Set(P.filter((v,j)=>v!=j));focus=new Set();Object.values(CB).forEach(ids=>{if(ids.some(i=>mv.has(i)))ids.forEach(i=>focus.add(i))});draw();
+ $c(cap||'Scrambled cube. Bright pieces are the ones this move changes; everything else is dimmed.');lock(true);await sleep(500);await play(q.split(' '));lock(false);$c('Done: '+q)}
+async function watchStage(k){if(busy)return;begin();const r=solve(SC);let st=Uint8Array.from(SC),o=new Uint8Array(54);for(let i=0;i<k;i++)for(const m of r[i].moves){ap(st,MV[m],o);st=Uint8Array.from(o)}
+ col=st;focus=pieceIds(st,FOC[k]);draw();const mv=r[k].moves;$c(`Focus: ${CAPS[k]} (bright). Moves: ${mv.join(' ')||'none needed in this demo'}`);lock(true);await sleep(700);await play(mv);lock(false);$c(`Done: step ${k+1} finished on the demo cube (${mv.length} moves).`)}
+$('rnd').onclick=()=>{if(busy)return;begin();let c=Uint8Array.from(T),o=new Uint8Array(54),l='';for(let i=0;i<25;i++){let f;do f=FN[Math.random()*6|0];while(f==l);l=f;ap(c,MV[f+['',"'",'2'][Math.random()*3|0]],o);c=Uint8Array.from(o)}SC=c;col=Uint8Array.from(SC);focus=null;draw();$c('New random demo scramble ready. Press any ▶ Watch button.')};
+$('mine').onclick=()=>{if(busy)return;const c=demo?bak:col;if(!valid(c)||!solve(c))return $c('Your cube pattern is not valid. Fix it in the Solver tab first.');begin();SC=Uint8Array.from(c);col=Uint8Array.from(SC);focus=null;draw();$c('Your cube is now the demo cube. Press any ▶ Watch button.')};
+$('learn').onclick=e=>{const b=e.target.closest('.w');if(b)b.dataset.k?watchStage(+b.dataset.k):watch(b.dataset.s)};
+document.querySelectorAll('.bk').forEach(b=>b.onclick=()=>{if(busy||!demo)return;col=Uint8Array.from(bak);focus=null;draw();$c('');demo=false;document.querySelectorAll('.bk').forEach(x=>x.style.display='none');status('Your cube is back')});
+$('spd2').oninput=()=>{$('spd').value=$('spd2').value;$('spv').textContent=$('spd').value+'x'};
+const setM=m=>{if(busy)return;meth=m;$('m1').className=m==1?'on':'';$('m2').className=m==2?'on':'';clearPlan();status('')};$('m1').onclick=()=>setM(1);$('m2').onclick=()=>setM(2);
+$('t1').onclick=()=>{setLabels(true);inLearn=false;focus=null;draw();$('solver').prepend($('stage'));$('stage').style.height='';$('solver').style.display='';$('learn').style.display='none';$('t1').className='on';$('t2').className=''};
+$('t2').onclick=()=>{setLabels(true);inLearn=true;cube.style.transition='';rx=-26;ry=-38;view();$('lst').prepend($('stage'));$('stage').style.height='230px';$('solver').style.display='none';$('learn').style.display='block';$('t2').className='on';$('t1').className=''};
+view();setLabels(true);
+</script></body></html>
